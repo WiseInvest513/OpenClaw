@@ -1,11 +1,13 @@
+import { feishuConfig } from "@/config/feishu";
+
 const FEISHU_API = "https://open.feishu.cn/open-apis";
 
 let cachedToken: string | null = null;
 let tokenExpireAt = 0;
 
 export async function getFeishuToken(): Promise<string> {
-  const appId = process.env.FEISHU_APP_ID;
-  const appSecret = process.env.FEISHU_APP_SECRET;
+  const appId = process.env.FEISHU_APP_ID ?? feishuConfig.appId;
+  const appSecret = process.env.FEISHU_APP_SECRET ?? feishuConfig.appSecret;
   if (!appId || !appSecret) {
     throw new Error("FEISHU_APP_ID or FEISHU_APP_SECRET not configured");
   }
