@@ -26,7 +26,7 @@ export default function Home() {
           <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight font-nunito mb-6 text-slate-900 dark:text-white leading-[1.1]">
             下一代智能自动化工作流<br />
             <TypingEffect
-              texts={["重塑你的生产力", "重构你的信息获取方式", "重构你的交易方式", "实现 AI 自动炒币"]}
+              texts={["重塑你的生产力", "重构你的信息获取方式", "重构你的交易策略", "实现 AI 自动炒币"]}
               typingSpeed={150}
               deletingSpeed={80}
               pauseAfterTyping={2000}

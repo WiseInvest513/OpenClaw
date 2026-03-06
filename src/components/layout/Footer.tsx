@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Github } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -64,10 +65,15 @@ export default function Footer() {
       <Dialog open={showWechat} onOpenChange={setShowWechat}>
         <DialogContent className="sm:max-w-sm flex flex-col items-center justify-center p-6">
           <DialogTitle className="text-center font-nunito mb-4">关注公众号</DialogTitle>
-          <div className="w-48 h-48 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
-            {/* 预留二维码图片位 */}
-            <span className="text-slate-400 text-sm">二维码图片占位</span>
-            {/* 后续替换成真实图片：<img src="/wechat-qr.png" alt="微信二维码" className="w-full h-full object-cover" /> */}
+          <div className="w-48 h-48 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 relative">
+            <Image
+              src="/wechat-qr.png"
+              alt="微信公众号二维码"
+              width={192}
+              height={192}
+              className="object-contain"
+              unoptimized
+            />
           </div>
           <p className="mt-4 text-sm text-slate-500 text-center">扫描二维码，获取最新动态与技术支持</p>
         </DialogContent>
