@@ -1,0 +1,326 @@
+const FEISHU_API = "https://open.feishu.cn/open-apis";
+
+let cachedToken: string | null = null;
+let tokenExpireAt = 0;
+
+export async function getFeishuToken(): Promise<string> {
+  const appId = process.env.FEISHU_APP_ID;
+  const appSecret = process.env.FEISHU_APP_SECRET;
+  if (!appId || !appSecret) {
+    throw new Error("FEISHU_APP_ID or FEISHU_APP_SECRET not configured");
+  }
+  if (cachedToken && Date.now() < tokenExpireAt - 60000) {
+    return cachedToken;
+  }
+  const res = await fetch(`${FEISHU_API}/auth/v3/tenant_access_token/internal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  const data = (await res.json()) as {
+    code?: number;
+    tenant_access_token?: string;
+    expire?: number;
+    msg?: string;
+  };
+  if (data.code !== 0 || !data.tenant_access_token) {
+    throw new Error(data.msg || "Failed to get Feishu token");
+  }
+  cachedToken = data.tenant_access_token;
+  tokenExpireAt = Date.now() + (data.expire || 7200) * 1000;
+  return cachedToken;
+}
+
+export async function getFeishuDocument(documentId: string) {
+  const token = await getFeishuToken();
+  const res = await fetch(
+    `${FEISHU_API}/docx/v1/documents/${documentId}?document_revision_id=-1`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  if (!res.ok) throw new Error(`Feishu doc fetch failed: ${res.status}`);
+  return res.json() as Promise<{
+    data?: { document?: { title?: string; revision_id?: number } };
+    code?: number;
+    msg?: string;
+  }>;
+}
+
+const docCache = new Map<
+  string,
+  { revisionId: number; html: string }
+>();
+
+export function getCachedDocHtml(documentId: string, revisionId: number): string | null {
+  const cached = docCache.get(documentId);
+  if (cached && cached.revisionId === revisionId) return cached.html;
+  return null;
+}
+
+export function setCachedDocHtml(documentId: string, revisionId: number, html: string): void {
+  docCache.set(documentId, { revisionId, html });
+}
+
+type TextRun = { text?: string; content?: string };
+type FeishuBlock = {
+  block_id: string;
+  block_type: number | string;
+  text?: { elements?: Array<{ text_run?: TextRun }> };
+  heading1?: { elements?: Array<{ text_run?: TextRun }> };
+  heading2?: { elements?: Array<{ text_run?: TextRun }> };
+  heading3?: { elements?: Array<{ text_run?: TextRun }> };
+  quote?: { elements?: Array<{ text_run?: TextRun }> };
+  quote_container?: unknown;
+  image?: { token?: string; width?: number; height?: number };
+  code?: {
+    language?: string;
+    style?: { language?: number };
+    elements?: Array<{ text_run?: TextRun }>;
+  };
+  children?: string[];
+  [key: string]: unknown;
+};
+
+export async function getFeishuBlocks(documentId: string): Promise<FeishuBlock[]> {
+  const token = await getFeishuToken();
+  const blocks: FeishuBlock[] = [];
+  let pageToken: string | undefined;
+  do {
+    const url = new URL(
+      `${FEISHU_API}/docx/v1/documents/${documentId}/blocks`,
+      "https://open.feishu.cn"
+    );
+    url.searchParams.set("document_revision_id", "-1");
+    url.searchParams.set("page_size", "500");
+    if (pageToken) url.searchParams.set("page_token", pageToken);
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`Feishu blocks fetch failed: ${res.status}`);
+    const data = (await res.json()) as {
+      data?: { items?: FeishuBlock[]; page_token?: string; has_more?: boolean };
+      code?: number;
+      msg?: string;
+    };
+    if (data.code !== 0 && data.data === undefined) {
+      throw new Error(data.msg || "Feishu API error");
+    }
+    const items = data.data?.items ?? [];
+    blocks.push(...items);
+    pageToken = data.data?.has_more ? data.data.page_token : undefined;
+  } while (pageToken);
+  return blocks;
+}
+
+async function fetchBlockChildren(
+  documentId: string,
+  blockId: string,
+  token: string
+): Promise<FeishuBlock[]> {
+  const items: FeishuBlock[] = [];
+  let pageToken: string | undefined;
+  do {
+    const url = new URL(
+      `${FEISHU_API}/docx/v1/documents/${documentId}/blocks/${blockId}/children`,
+      "https://open.feishu.cn"
+    );
+    url.searchParams.set("document_revision_id", "-1");
+    url.searchParams.set("page_size", "100");
+    if (pageToken) url.searchParams.set("page_token", pageToken);
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return items;
+    const data = (await res.json()) as {
+      data?: { items?: FeishuBlock[]; page_token?: string; has_more?: boolean };
+    };
+    items.push(...(data.data?.items ?? []));
+    pageToken = data.data?.has_more ? data.data.page_token : undefined;
+  } while (pageToken);
+  return items;
+}
+
+async function fetchImageUrl(token: string, fileToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${FEISHU_API}/drive/v1/medias/batch_get_tmp_download_url?file_tokens=${encodeURIComponent(fileToken)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = (await res.json()) as {
+      data?: { tmp_download_urls?: Array<{ tmp_download_url?: string }> };
+      code?: number;
+    };
+    if (data.code === 0 && data.data?.tmp_download_urls?.[0]?.tmp_download_url) {
+      return data.data.tmp_download_urls[0].tmp_download_url;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function getBlockText(block: FeishuBlock): string {
+  const textBlock =
+    block.text ?? block.heading1 ?? block.heading2 ?? block.heading3 ?? block.quote ?? block.code;
+  if (!textBlock?.elements) return "";
+  return (textBlock.elements as Array<{ text_run?: TextRun }>)
+    .map((e) => e.text_run?.content ?? e.text_run?.text ?? "")
+    .join("");
+}
+
+type TextElement = {
+  text_run?: { content?: string; text?: string; text_element_style?: { bold?: boolean; italic?: boolean } };
+  text?: string;
+};
+
+function renderElementsToHtml(elements: TextElement[] | undefined, escape: (s: string) => string): string {
+  if (!elements?.length) return "";
+  return elements
+    .map((e) => {
+      const run = e.text_run;
+      const content = run?.content ?? run?.text ?? "";
+      const bold = run?.text_element_style?.bold;
+      const italic = run?.text_element_style?.italic;
+      const escaped = escape(content);
+      if (bold && italic) return `<strong><em>${escaped}</em></strong>`;
+      if (bold) return `<strong>${escaped}</strong>`;
+      if (italic) return `<em>${escaped}</em>`;
+      return escaped;
+    })
+    .join("");
+}
+
+function getBlockType(block: FeishuBlock): string {
+  const t = block.block_type;
+  if (typeof t === "string" && t) return t;
+  const typeMap: Record<number, string> = {
+    1: "page",
+    2: "text",
+    3: "heading1",
+    4: "heading2",
+    5: "heading3",
+    6: "heading4",
+    7: "heading5",
+    8: "heading6",
+    9: "heading7",
+    10: "heading8",
+    11: "heading9",
+    12: "bullet",
+    13: "ordered",
+    14: "code",
+    15: "quote",
+    16: "quote_container",
+    17: "table",
+    18: "image",
+    19: "divider",
+    20: "file",
+    21: "callout",
+    27: "image",
+    34: "quote_container",
+  };
+  return typeMap[t as number] ?? "text";
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderBlockToHtml(block: FeishuBlock, escape: (s: string) => string): string {
+  const type = getBlockType(block);
+  const text = getBlockText(block);
+  const textBlock =
+    block.text ?? block.heading1 ?? block.heading2 ?? block.heading3 ?? block.quote ?? block.code;
+  const elements = textBlock?.elements as TextElement[] | undefined;
+  const richContent = elements ? renderElementsToHtml(elements, escape) : escape(text);
+  if (type.startsWith("heading")) {
+    const level = type.replace("heading", "") || "1";
+    const id = block.block_id ? ` id="${escape(block.block_id)}"` : "";
+    return `<h${level}${id} class="doc-heading">${richContent}</h${level}>`;
+  }
+  if (type === "quote") {
+    return `<blockquote class="doc-quote"><p>${richContent}</p></blockquote>`;
+  }
+  if (type === "code") {
+    /* handled in main loop for children support */
+    return "";
+  }
+  if (type === "text" || type === "bullet" || type === "ordered") {
+    if (text.trim()) return `<p>${richContent}</p>`;
+    return `<p class="doc-spacer"></p>`;
+  }
+  if (type === "divider") return "<hr />";
+  if (type !== "page" && text.trim()) return `<p>${richContent}</p>`;
+  return "";
+}
+
+export async function feishuBlocksToHtml(
+  documentId: string,
+  blocks: FeishuBlock[]
+): Promise<string> {
+  const token = await getFeishuToken();
+  const escape = escapeHtml;
+  const parts: string[] = [];
+  const root = blocks.find((b) => getBlockType(b) === "page");
+  const childIds = root?.children ?? [];
+  const blockMap = new Map<string, FeishuBlock>();
+  for (const b of blocks) blockMap.set(b.block_id, b);
+  for (const id of childIds) {
+    const block = blockMap.get(id);
+    if (!block) continue;
+    const type = getBlockType(block);
+    if (type === "quote_container" || type === "callout") {
+      const children = await fetchBlockChildren(documentId, block.block_id, token);
+      const inner = children
+        .map((c) => renderBlockToHtml(c, escape))
+        .filter(Boolean)
+        .join("");
+      parts.push(
+        `<blockquote class="doc-quote">${inner || "<p></p>"}</blockquote>`
+      );
+    } else if (type === "code") {
+      let codeText = getBlockText(block);
+      if (block.children?.length) {
+        const children = await fetchBlockChildren(documentId, block.block_id, token);
+        codeText = children.map((c) => getBlockText(c)).join("\n") || codeText;
+      }
+      const codeData = block.code as { language?: string; style?: { language?: number } };
+      let lang = codeData?.language ?? "";
+      if (!lang && typeof codeData?.style?.language === "number") {
+        const langMap: Record<number, string> = {
+          1: "plaintext",
+          2: "bash",
+          3: "python",
+          4: "javascript",
+          5: "java",
+          6: "sql",
+          7: "html",
+          8: "css",
+          9: "json",
+          10: "yaml",
+        };
+        lang = langMap[codeData.style.language] ?? "plaintext";
+      }
+      parts.push(
+        `<pre><code class="language-${escape(lang)}">${escape(codeText)}</code></pre>`
+      );
+    } else if ((type === "image" || block.image?.token) && block.image?.token) {
+      const url = await fetchImageUrl(token, block.image.token);
+      if (url) {
+        parts.push(
+          `<figure class="doc-image-wrap"><img src="${escape(url)}" alt="" class="doc-image" /></figure>`
+        );
+      } else {
+        parts.push(`<p class="text-slate-500 text-sm">[图片]</p>`);
+      }
+    } else {
+      const html = renderBlockToHtml(block, escape);
+      if (html) parts.push(html);
+    }
+  }
+  return parts.join("");
+}
