@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, BookOpen, Terminal, Code, Cpu, FileText } from "lucide-react";
+import { Home, BookOpen, Terminal, Code, Cpu } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function Header() {
@@ -28,9 +28,6 @@ export default function Header() {
           </Link>
           <Link href="/commands" className="hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <Terminal className="w-4 h-4" /> 命令指南
-          </Link>
-          <Link href="/articles" className="hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-            <FileText className="w-4 h-4" /> 社区好文
           </Link>
           <Link href="/crypto" className="hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <Code className="w-4 h-4" /> Web3实战
