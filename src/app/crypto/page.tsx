@@ -25,12 +25,13 @@ export default function CryptoPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
         {/* Binance Section */}
-        <Card className="border-t-4 border-t-[#FCD535] dark:bg-slate-900/50 backdrop-blur-sm relative overflow-hidden group">
+        <Link href="/crypto/binance" className="block">
+        <Card className="border-t-4 border-t-[#FCD535] dark:bg-slate-900/50 backdrop-blur-sm relative overflow-hidden group hover:shadow-lg hover:shadow-[#FCD535]/10 transition-all cursor-pointer h-full">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#FCD535]/10 rounded-full blur-3xl group-hover:bg-[#FCD535]/20 transition-all duration-500"></div>
           <CardHeader className="pb-4">
             <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 bg-[#FCD535] rounded-xl flex items-center justify-center text-slate-900 font-bold text-xl shadow-lg shadow-[#FCD535]/20">
-                BN
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden bg-white shadow-lg shadow-[#FCD535]/20">
+                <img src="/binance-logo.png" alt="Binance" className="w-8 h-8 object-contain" />
               </div>
               <Badge variant="outline" className="border-[#FCD535] text-[#FCD535]">API Integration</Badge>
             </div>
@@ -61,14 +62,16 @@ export default function CryptoPage() {
             </Button>
           </CardFooter>
         </Card>
+        </Link>
 
         {/* OKX Section */}
-        <Card className="border-t-4 border-t-slate-800 dark:border-t-slate-200 dark:bg-slate-900/50 backdrop-blur-sm relative overflow-hidden group">
+        <Link href="/crypto/okx" className="block">
+        <Card className="border-t-4 border-t-slate-800 dark:border-t-slate-200 dark:bg-slate-900/50 backdrop-blur-sm relative overflow-hidden group hover:shadow-lg hover:shadow-slate-400/10 transition-all cursor-pointer h-full">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-slate-400/10 rounded-full blur-3xl group-hover:bg-slate-400/20 transition-all duration-500"></div>
           <CardHeader className="pb-4">
             <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 bg-slate-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-slate-900 font-bold text-xl shadow-lg shadow-slate-900/20">
-                OK
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden bg-white dark:bg-slate-100 shadow-lg shadow-slate-900/20">
+                <img src="/okx-logo.png" alt="OKX" className="w-8 h-8 object-contain" />
               </div>
               <Badge variant="outline" className="border-slate-500 text-slate-500">Web3 Wallet</Badge>
             </div>
@@ -94,11 +97,12 @@ export default function CryptoPage() {
             </div>
           </CardContent>
           <CardFooter className="pt-6">
-            <Button className="w-full bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white" disabled>
-              教程筹备中...
+            <Button className="w-full bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+              进入教程
             </Button>
           </CardFooter>
         </Card>
+        </Link>
       </div>
 
       {/* 风险提示 */}
