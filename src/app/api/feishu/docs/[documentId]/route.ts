@@ -5,6 +5,7 @@ import {
   feishuBlocksToHtml,
   getCachedDocHtml,
   setCachedDocHtml,
+  linkifyUrls,
 } from "@/lib/feishu";
 
 export async function GET(
@@ -22,7 +23,7 @@ export async function GET(
     const cached = getCachedDocHtml(safe, revisionId);
     if (cached) {
       return NextResponse.json(
-        { html: cached, title: doc.data?.document?.title ?? safe },
+        { html: linkifyUrls(cached), title: doc.data?.document?.title ?? safe },
         {
           headers: {
             "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",

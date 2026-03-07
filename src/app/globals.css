@@ -194,20 +194,35 @@
   margin: 0.25em 0;
 }
 
-/* 云文档图片：圆角、弱化背景、缩小、居中 */
+/* 云文档图片：圆角、灰度背景、缩小、居中 */
 .doc-content .doc-image-wrap {
   display: flex;
   justify-content: center;
   margin: 1.5rem 0;
   padding: 1rem;
-  background: rgb(248 250 252);
+  background: rgb(203 213 225);
   border-radius: 1rem;
 }
 .dark .doc-content .doc-image-wrap {
-  background: rgb(30 41 59 / 0.5);
+  background: rgb(71 85 105);
 }
 .doc-content .doc-image {
   max-width: 85%;
   border-radius: 1.25rem;
   object-fit: contain;
+}
+
+/* 云文档链接：蓝链 */
+.doc-content .doc-link {
+  color: rgb(59 130 246);
+  text-decoration: underline;
+}
+.doc-content .doc-link:hover {
+  color: rgb(37 99 235);
+}
+.dark .doc-content .doc-link {
+  color: rgb(96 165 250);
+}
+.dark .doc-content .doc-link:hover {
+  color: rgb(147 197 253);
 }

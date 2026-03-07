@@ -5,5 +5,8 @@
 export const feishuConfig = {
   appId: "cli_a92072cb5238dcef",
   appSecret: "rsGaEezhmJERuPOXhm5X2cwLVPaIBzBY",
-  docIds: ["OaNjdZ2sqokbvcx5CTKccJjwn4f"],
+  docIds: [
+    "OaNjdZ2sqokbvcx5CTKccJjwn4f", // 第一期
+    "LiepdtSJAoHoUmx8xCvcIjhjnZf", // 第二期
+  ],
 };

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronRight, FileText, Loader2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { linkifyUrls } from "@/lib/feishu";
+import staticTutorials from "@/data/tutorials.json";
 
 type TocItem = { id: string; text: string; level: number };
 
@@ -13,29 +16,55 @@ type DocItem = {
   source: "feishu";
 };
 
+type StaticTutorial = { title: string; html: string };
+
+function getStaticHtml(documentId: string): string | null {
+  const t = (staticTutorials as Record<string, StaticTutorial>)[documentId];
+  return t?.html ?? null;
+}
+
 export default function TutorialsPage() {
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [activeDoc, setActiveDoc] = useState<DocItem | null>(null);
   const [docHtml, setDocHtml] = useState<string | null>(null);
   const [docLoading, setDocLoading] = useState(false);
   const [docToc, setDocToc] = useState<TocItem[]>([]);
+  const [zoomedImageSrc, setZoomedImageSrc] = useState<string | null>(null);
   const docContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/docs")
       .then((r) => r.json())
       .then((d) => {
-        const files = d.files ?? [];
+        let files = d.files ?? [];
+        if (files.length === 0 && Object.keys(staticTutorials as object).length > 0) {
+          files = Object.entries(staticTutorials as Record<string, StaticTutorial>).map(
+            ([id, t]) => ({ name: t.title, documentId: id, source: "feishu" as const })
+          );
+        }
         setDocs(files);
         if (files.length > 0) {
           setActiveDoc((prev) => (prev ? prev : files[0]));
         }
       })
-      .catch(() => setDocs([]));
+      .catch(() => {
+        const fallback = Object.entries(staticTutorials as Record<string, StaticTutorial>).map(
+          ([id, t]) => ({ name: t.title, documentId: id, source: "feishu" as const })
+        );
+        setDocs(fallback);
+        if (fallback.length > 0) setActiveDoc(fallback[0]);
+      });
   }, []);
 
   useEffect(() => {
     if (activeDoc) {
+      const staticHtml = getStaticHtml(activeDoc.documentId);
+      if (staticHtml) {
+        setDocHtml(linkifyUrls(staticHtml));
+        setDocLoading(false);
+        setDocToc([]);
+        return;
+      }
       setDocLoading(true);
       setDocHtml(null);
       setDocToc([]);
@@ -46,6 +75,15 @@ export default function TutorialsPage() {
         .finally(() => setDocLoading(false));
     }
   }, [activeDoc]);
+
+  const handleDocContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const img = target.closest(".doc-image") as HTMLImageElement | null;
+    if (img?.src) {
+      e.preventDefault();
+      setZoomedImageSrc(img.src);
+    }
+  }, []);
 
   useEffect(() => {
     if (!activeDoc || !docHtml || !docContentRef.current) return;
@@ -62,7 +100,19 @@ export default function TutorialsPage() {
   }, [docHtml, activeDoc]);
 
   return (
-    <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-1 flex flex-col md:flex-row gap-6">
+    <>
+      <Dialog open={!!zoomedImageSrc} onOpenChange={(open) => !open && setZoomedImageSrc(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-2 bg-transparent border-0 shadow-none">
+          {zoomedImageSrc && (
+            <img
+              src={zoomedImageSrc}
+              alt="放大预览"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-1 flex flex-col md:flex-row gap-6">
       {/* 左侧教程目录 */}
       <aside className="w-full md:w-64 shrink-0">
         <nav className="sticky top-24 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 p-4">
@@ -78,16 +128,18 @@ export default function TutorialsPage() {
                   <li key={doc.documentId}>
                     <button
                       onClick={() => setActiveDoc(doc)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between gap-2 group ${
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center gap-2 group ${
                         isActive
                           ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 font-medium"
                           : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
                       }`}
                       title={doc.name}
                     >
-                      <FileText className="w-4 h-4 shrink-0 text-slate-400" />
-                      <span className="min-w-0 truncate">{displayName}</span>
-                      {isActive && <ChevronRight className="w-4 h-4 shrink-0" />}
+                      <FileText className="w-4 h-4 shrink-0 flex-shrink-0 text-slate-400" />
+                      <span className="min-w-0 flex-1 truncate text-left">{displayName}</span>
+                      <span className="w-4 shrink-0 flex-shrink-0 flex items-center justify-center">
+                        {isActive ? <ChevronRight className="w-4 h-4" /> : null}
+                      </span>
                     </button>
                   </li>
                 );
@@ -116,8 +168,9 @@ export default function TutorialsPage() {
                   ) : docHtml ? (
                     <div
                       ref={docContentRef}
-                      className="doc-content prose prose-slate dark:prose-invert prose-yellow max-w-none prose-headings:font-nunito prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-img:rounded-lg [&_.doc-heading]:scroll-mt-24"
+                      className="doc-content prose prose-slate dark:prose-invert prose-yellow max-w-none prose-headings:font-nunito prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-img:rounded-lg [&_.doc-heading]:scroll-mt-24 [&_.doc-image]:cursor-zoom-in"
                       dangerouslySetInnerHTML={{ __html: docHtml }}
+                      onClick={handleDocContentClick}
                     />
                   ) : (
                     <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-slate-500 text-center py-12">
@@ -162,5 +215,6 @@ export default function TutorialsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

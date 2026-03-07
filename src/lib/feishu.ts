@@ -324,5 +324,20 @@ export async function feishuBlocksToHtml(
       if (html) parts.push(html);
     }
   }
-  return parts.join("");
+  let html = parts.join("");
+  html = linkifyUrls(html);
+  return html;
+}
+
+export function linkifyUrls(html: string): string {
+  const urlRegex = /(^|>|\s|[：:]\s*)(https?:\/\/[^\s"'<>)\]]+?)(?=[\s)）\]"']|$|<)/g;
+  const linkify = (text: string) =>
+    text.replace(urlRegex, (_, before, url) =>
+      `${before}<a href="${url}" class="doc-link" target="_blank" rel="noopener noreferrer">${url}</a>`
+    );
+  return html.replace(/<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>/g, (codeBlock) => {
+    return "<!--CODE-->".concat(codeBlock).concat("<!--/CODE-->");
+  }).split(/<!--CODE-->|<!--\/CODE-->/).map((part, i) =>
+    i % 2 === 1 ? part : linkify(part)
+  ).join("");
 }
