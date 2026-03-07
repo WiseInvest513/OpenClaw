@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronRight, FileText, Loader2 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { linkifyUrls } from "@/lib/feishu";
 import staticTutorials from "@/data/tutorials.json";
 
@@ -102,12 +102,13 @@ export default function TutorialsPage() {
   return (
     <>
       <Dialog open={!!zoomedImageSrc} onOpenChange={(open) => !open && setZoomedImageSrc(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-2 bg-transparent border-0 shadow-none">
+        <DialogContent className="!max-w-[95vw] !w-[95vw] max-h-[95vh] p-2 bg-transparent border-0 shadow-none">
+          <DialogTitle className="sr-only">图片放大预览</DialogTitle>
           {zoomedImageSrc && (
             <img
               src={zoomedImageSrc}
               alt="放大预览"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              className="w-full max-w-none max-h-[85vh] object-contain rounded-lg"
             />
           )}
         </DialogContent>
