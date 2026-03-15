@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "fetch-crypto-doc": "node scripts/fetch-crypto-doc.mjs",
+    "cache-feishu-images": "node scripts/cache-feishu-images.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
